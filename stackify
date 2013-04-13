@@ -1,0 +1,323 @@
+#!/usr/bin/env python
+'''
+Stackify V1.2.0
+Author: Grant Hoffman
+email:   Grant_Hoffman@intuit.com
+
+Directions:
+1. Specify AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as Environmental Variables
+2. Requires Python 2.6+. Standard version available on most distribution (ie. run: python -v)
+3. Must install boto 2.5+ before running stackify (ie. run: pip install boto)
+
+Use:
+Used to publish CF Stack information to SimpleDB and pass stack parameters to CAP
+
+Submit bugfixes to: https://github.com/intuit/stackify
+
+Changelog:
+
+v1.1.0
+Added functionality to pass json file based parameters
+
+v1.2.0
+Added IAM role functionality 
+Added better error checking output if credentials are incorrect
+'''
+
+import sys
+import re
+from optparse import OptionParser
+from optparse import OptionGroup
+import json
+from pprint import pprint
+import boto.sdb
+import boto.cloudformation
+
+REGIONS = ['us-east-1', 'us-west-1', 'us-west-2']
+
+
+def get_file_resources(project,region,environment,filename):
+    #region = re.sub(r'[^\w]', '', region)
+    # Pass each file specified
+    try:
+        for f in filename:
+            json_data = open(f)
+            data = json.load(json_data)
+            # Pass pattern for regex matching
+            pattern = [project, environment, region]
+            jsongrep(data, map(re.compile, pattern))      
+    except:
+        print "Couldn't load json file"
+        sys.exit(-1)
+        
+            
+def jsongrep(d, patterns):
+    try:
+        pattern = patterns.pop(0)
+    except IndexError:
+        js = []
+        for key, value in d.iteritems():
+            pair = [key,value]
+            js.append(pair)
+    #Output as CAP Parameters
+        for k, v in js:
+            item = ' -a %s=%s' % (k,v)
+            print item,
+ 
+    else:
+        if isinstance(d, dict):
+            keys = filter(pattern.match, d.keys())
+        elif isinstance(d, list):
+            keys = map(int,
+                       filter(pattern.match,
+                              ['%d' % i for i in range(len(d))]))
+        else:
+            pprint(d)
+            return
+        for item in (d[key] for key in keys):
+            jsongrep(item, patterns[:])
+
+
+def get_stack_resources(stackname):
+    # Connect to SimpleDB Stacks Domain
+    d = []
+    try: 
+        dom = sdbconn.get_domain('stacks')
+    except:
+        print "SDB Connection Error"
+        sys.exit(-1)
+    #Iterate over stack names provided and return keypairs in CAP format
+    for stack in stackname:
+        i = dom.get_item(stack)
+        for key, value in i.iteritems():
+            pair = [key,value]
+            d.append(pair)
+    #Output Parameters
+    sys.stdout = sys.__stdout__
+    for k, v in d:
+        item = ' -a %s=%s' % (k,v) 
+        print item,
+
+    
+def put_stack_resources(stackname, resource_list):  
+    #Iterate over stack names and grab resources from CF
+    for stack in stackname:
+        try:
+            mystackresources = cfnconn.list_stack_resources(stack)
+        except:
+            print "CF get request error"
+            sys.exit(-1)
+
+        print "Connected to CloudFormation, Pulling resources for %s" % (stack)
+        resource_list = []
+        try:
+            for resource in mystackresources:
+                resource_list.append(resource.logical_resource_id)
+                resource_list.append(resource.physical_resource_id)
+            resource_number = len(mystackresources)
+            print "%s Resources Found" % (resource_number)
+            # Iterate over resource and add to dictionary
+            it = iter(resource_list)
+            resource_dict = dict(zip(it, it))
+            # Pass CF dict to SDB
+            set_stack_resources(stack, resource_dict)
+        except:
+            print "Error Creating Parameters from Resources"
+            sys.exit(-1)
+
+def set_stack_resources(stack, resource_list):
+    try:
+        # Connect to SimpleDB Stacks Domain
+        dom = sdbconn.get_domain('stacks')
+        print "Connected to SimpleDB:stacks"
+        # Use iterated stack for SDB item
+        item_name = stack
+        # Post key value pairs from dict
+        dom.put_attributes(item_name, resource_list)
+        print "SimpleDB Updated with Stack %s Resources" % (stack)
+    except:
+        print "Unexpected error connecting to SDB Domain Stacks in Region %s" % (region)
+        sys.exit(-1)
+
+
+
+def vararg_callback(option, opt_str, value, parser):
+    # iterate over provided stacks using optparse callback
+    assert value is None
+    value = []
+
+    def floatable(str):
+        try:
+            float(str)
+            return True
+        except ValueError:
+            return False
+
+    for arg in parser.rargs:
+        if arg[:2] == "--" and len(arg) > 2:
+            break
+        if arg[:1] == "-" and len(arg) > 1 and not floatable(arg):
+            break
+        value.append(arg)
+
+    del parser.rargs[:len(value)]
+    setattr(parser.values, option.dest, value)
+
+
+def usageget():
+    print ""
+    print "Usage:"
+    print "The get argument is used To provide parameters to a stack launch"
+    print "By default, the \"get\" argument will pull the information from simpledb"
+    print ""
+    print "  Example: "
+    print "    %s get -s cto-mobile-VPC -r us-west-1" % (sys.argv[0])
+    print "    -The -s and -r parameters are mandatory with this option"
+    print ""
+    print "If you would like to pull the parameters from a file use the -f parameter and provide the filename(s)"
+    print ""
+    print "  Example: " 
+    print "    file.json < \"{ \"cto-mobile\": { \"prod\": { \"us-west-1\" { \"VPCID\": \"vpc-123456\", \"MinimumInstances\": \"1\",}}}}\""
+    print "    %s get -f ./file.json -p cto-mobile -e prod -r us-west-1"  % (sys.argv[0])
+    print "    returns: \"-a VPCID=123456 -a MinimumInstances=1\""
+    print "     -Multiple .json files may be passed using -f"
+    print "     -When using \"-f file.json\", the -p -e and -r parameters are mandatory"
+    print ""
+    print "For getting parameters from both a .json file and simpledb, use \"-f file.json\" and the \"-d\" flag"
+    print ""
+    print "  Example:"
+    print "    %s get -f ./file.json -p cto-mobile -e prod -r us-west-1 -d -s cto-mobile-VPC" % (sys.argv[0])
+    print "    -The stackname will need to be provided to pull the correct stack info from simpledb"
+    print ""
+    print " -i <iam role name> may be used to use an iam role instead of passing access & secret keys"
+    sys.exit(-1)
+
+def usageput():
+    print ""
+    print "Usage:"
+    print "The put argument will grab cloudformation stack resources and pass them to SimpleDB to be used as parameters for future stacks"
+    print ""
+    print "  Example: " 
+    print "    %s put -s cto-mobile-prod-1 -r us-west-1" % (sys.argv[0])
+    print ""
+    print " -i <iam role name> may be used to use an iam role instead of passing access & secret keys"
+    sys.exit(-1)
+
+def errormessage():
+   print "%s not provided" % ( options.attr)
+
+
+def main():
+    #Set Usage Information
+    usage = "usage: %s (put|get) [options]" % (sys.argv[0])
+    parser = OptionParser(usage)
+    #Options
+    parser.add_option("-p", "--project", action="store", type="string", dest="project")
+    parser.add_option("-e", "--environment", action="store", type="string", dest="environment")
+    parser.add_option("-r", "--region", action="store", type="string", dest="region")
+    parser.add_option("-s", "--stack", dest="stackname", action="callback", callback=vararg_callback)
+    parser.add_option("-f", "--file", dest="filename", action="callback", callback=vararg_callback)
+    parser.add_option("-d", "--db", action="store_true", dest="sdb", default=False, help="Used for retrieving parameters from SimpleDB")
+    parser.add_option("-i", "--role", action="store", type="string", dest="iamrole")
+    group = OptionGroup(parser, "Multiple Values Enabled",
+                    "You may provide multiple stack names to -s and or -f.                "
+                    "  Example: stackify get -r us-east-1 -s stack1 stack2 stack3         " 
+                    "  Example: stackify get -f file.json -p cto-mobile -r us-west-1 -e qa"
+                    "  Example: stackify put -r us-east-1 -s stack1 stack2 stack3         "  )
+    parser.add_option_group(group)
+    (options, args) = parser.parse_args()
+    
+    # Check for the get/put arg
+    if len(args) < 1:
+        parser.error("Please Specify Put or Get Job, use -h for more information")
+        usageget()
+        
+    #Set global Variables and connect to aws cf and sdb services with keys/regions if necessary
+    if sys.argv[1] == "get":
+        if not options.filename:
+            options.sdb = True
+    if sys.argv[1] == "put" or options.sdb:
+        global cfnconn
+        try:
+            if options.iamrole: 
+                cfnconn = boto.cloudformation.connect_to_region(options.region,instance_profile_name=options.iamrole)
+            else:
+                cfnconn = boto.cloudformation.connect_to_region(options.region)
+        except:
+            print 'Error authenticating for AWS CF, check keys or iam role'
+            sys.exit(-1)
+        global sdbconn
+        try:
+            if options.iamrole:  
+                sdbconn = boto.sdb.connect_to_region(options.region,instance_profile_name=options.iamrole)
+            else:
+                sdbconn = boto.sdb.connect_to_region(options.region)
+        except:
+            print 'Error authenticating for AWS SimpleDB, check keys or iam role'
+            sys.exit(-1)
+    global region  
+    region = options.region
+    stackname = options.stackname
+    #Check for arguments and options and run jobs depending on parameters
+    if sys.argv[1] == "get":
+        if options.filename:
+            if not options.project:
+                print "-p not provided"
+                usageget()
+            if not options.environment:
+                print "-e not provided"
+                usageget()
+            if not options.region:
+                print "-e not provided"
+                usageget()
+            # Check for get job with both -f and -d
+            if options.sdb:
+                if not options.stackname:
+                    print "-s not provided"
+                    usageget()
+                if not options.region:
+                    print "-r not provided"
+                    usageget()
+                get_stack_resources(stackname)
+                get_file_resources(options.project,options.region,options.environment,options.filename)  
+            else:
+                get_file_resources(options.project,options.region,options.environment,options.filename) 
+        else:
+            if not options.stackname:
+                print "-s not provided"
+                usageget()
+            if not options.region:
+                print "-r not provided"
+                usageget()
+            get_stack_resources(stackname)
+    elif sys.argv[1] == "put":
+        if not options.stackname:
+            print getattr(parser.values, options.stackname)
+            print "-s not provided"
+            usageput()
+        if not options.region in REGIONS:
+            if options.region == None:
+                print "Region not specified"
+            else:
+                print "%s is not a valid region" % options.region
+            usageput()
+        if not options.region:
+            print "-r not provided"
+            usageput()
+        print "Running put call for Region=%s & Stacks=%s" % (options.region,options.stackname)
+        resource_list = []
+        put_stack_resources(stackname, resource_list)
+    
+    else:
+        print "Must pass argument \"get\" or \"put\" "
+        print "Example %s \"get\" ... "  % (sys.argv[0])
+        
+        print "get:"
+        usageget()
+        print ""
+        print "put:"
+        usageput()
+
+
+if __name__ == '__main__':
+    main()
