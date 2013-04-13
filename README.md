@@ -68,7 +68,7 @@ Example:
 
 #### Passing Parameters from a .json file
 
-* If you would like to pull the parameters from a json formatted file you can use the options: "**-f filename(s) -p project -e environment  -r region**"
+* If you would like to pull the parameters from a json formatted file you can use the options: **"-f filename(s) -p project -e environment  -r region"**
   
 Example: 
 1. Create json formatted file parameters with project, environment, region and key value pairs.
