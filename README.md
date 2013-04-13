@@ -27,9 +27,8 @@ Set access and secret keys as environmental variables or use IAM roles if using 
 ```
 export AWS_ACCESS_KEY_ID=<AWS Access Key ID>
 export AWS_SECRET_ACCESS_KEY=<AWS Secret Access key>
-  
-# an IAM role can be defined using the -i parameter during the script run instead of setting the keys as environmental variables.
 ```
+* an IAM role can be defined using the -i parameter during the script run instead of setting the keys as environmental variables.
 
 Set the stackify file as executable
 
@@ -43,8 +42,8 @@ Documentation
 ### stackify put
 
 
-The '**put**' argument is used to save stack resource information to SimpleDB.
-This should be ran after succefully launching a stack using '__simple_deploy__' to enable the resources to be used as parameters for future stacks.
+The **'put'** argument is used to save stack resource information to SimpleDB.
+This should be ran after succefully launching a stack using __'simple_deploy'__ to enable the resources to be used as parameters for future stacks.
 The __-s__ and __-r__ parameters are mandatory with this option
 
 Example:
@@ -54,7 +53,7 @@ Example:
 
 ### stackify get
 
-The '**get**' argument is used to provide parameters to simple_deploy when launching a stack.
+The **'get'** argument is used to provide parameters to simple_deploy when launching a stack.
 By default, the 'get' argument will pull the saved resource information from simpledb to be used for launching a stack.
 
 #### Passing Parameters from SimpleDB
@@ -69,7 +68,7 @@ Example:
 
 #### Passing Parameters from a .json file
 
-* If you would like to pull the parameters from a json formatted file you can use the options: '**-f filename(s) -p project -e environment  -r region**'
+* If you would like to pull the parameters from a json formatted file you can use the options: "**-f filename(s) -p project -e environment  -r region**"
   
 Example: 
 1. Create json formatted file parameters with project, environment, region and key value pairs.
@@ -88,14 +87,14 @@ stackify get -f ./file.json -p cto-mobile -e prod -r us-west-1
 
 * Multiple .json files may be passed using __-f__
  
-* When using the '__-f__' option, the __-p -e__ and __-r__ parameters are mandatory
+* When using the __-f__ option, the __-p -e__ and __-r__ parameters are mandatory
   
 
 #### Passing Parameters from both a File and Database
 
 Parameters can be pulled from both a json file and the SimpleDB saved parameters. 
 
-If you'd like to specify parameters from both a .json file and from simpledb, use '__-f file.json__' and the __-d__ flag
+If you'd like to specify parameters from both a .json file and from simpledb, use __-f file.json__ and the __-d__ flag
     
 Example:
 
@@ -103,7 +102,7 @@ Example:
 stackify get -f ./file.json -p cto-mobile -e prod -r us-west-1 -d -s cto-mobile-VPC
 ```
 
-'__-d -s cto-mobile-VPC__' was added. The stackname will need to be provided to pull the correct stack info from simpledb when using the database __-d__ flag. 
+__'-d -s cto-mobile-VPC'__ was added. The stackname will need to be provided to pull the correct stack info from simpledb when using the database __-d__ flag. 
 
 * Multiple stacknames may be provided to __-s__
 
