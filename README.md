@@ -3,7 +3,7 @@ Stackify
 
 The goal of Stackify is to easily keep track of cloudformation parameters for multiple regions and AWS environments.
 
- Stackify has a few options for managing cloudformation parameters. Parameters can be stored in a json format, or can be stored in simpleDB. Stackify will pull resource id information about a stack and store it for us in SimpleDb, these can later be passed as parameters for launching future stacks.   Stackify is made to integrate with simple_deploy. After a stack is created with simple_deploy stackify is then ran using the stack name and region, all resource information about the stack is added to simpleDB under the 'stacks' domain. This is especially useful for launching a cloudformation stack for your VPC/Subnets, and then launching a stack inside of the VPC. Non AWS resource specific parameters should be stored using the json alternative.
+ Stackify has a few options for managing cloudformation parameters. Parameters can be stored in a json format, or can be stored in simpleDB. Stackify will pull resource id information about a stack and store it for us in SimpleDb, these can later be passed as parameters for launching future stacks.   Stackify is made to integrate with simple\_deploy. After a stack is created with simple\_deploy stackify is then ran using the stack name and region, all resource information about the stack is added to simpleDB under the 'stacks' domain. This is especially useful for launching a cloudformation stack for your VPC/Subnets, and then launching a stack inside of the VPC. Non AWS resource specific parameters should be stored using the json alternative.
 
 Prerequisites
 -------------
@@ -43,7 +43,7 @@ Documentation
 
 
 The **'put'** argument is used to save stack resource information to SimpleDB.
-This should be ran after succefully launching a stack using __'simple_deploy'__ to enable the resources to be used as parameters for future stacks.
+This should be ran after succefully launching a stack using __'simple\_deploy'__ to enable the resources to be used as parameters for future stacks.
 The __-s__ and __-r__ parameters are mandatory with this option
 
 Example:
@@ -53,13 +53,14 @@ Example:
 
 ### stackify get
 
-The **'get'** argument is used to provide parameters to simple_deploy when launching a stack.
+The **'get'** argument is used to provide parameters to simple\_deploy when launching a stack.
 By default, the 'get' argument will pull the saved resource information from simpledb to be used for launching a stack.
 
 #### Passing Parameters from SimpleDB
 
 * The __-d/--db__ option will be assumed unless __-f/--file__  option is used.  
 * The __-s/--stack__ and __-r/--region__ options are mandatory when not using __-f/--file__
+* The __-n/--simpledeployname__ option will store resource information about the stack in the same place simple\_deploy stores parameters, this enables the simple\_deploy parameters to be passed to future stacks also
 
 Example: 
 ```
@@ -83,11 +84,13 @@ file.json < '{ "cto-mobile": { "prod": { "us-west-1" { "VPCID": "vpc-123456", "M
 stackify get -f ./file.json -p cto-mobile -e prod -r us-west-1
 ```
 
-* This returns the key value pairs from the json file in a simple_deploy compatible parameter format: '-a VPCID=123456 -a MinimumInstances=1'
+* This returns the key value pairs from the json file in a simple\_deploy compatible parameter format: '-a VPCID=123456 -a MinimumInstances=1'
 
 * Multiple .json files may be passed using __-f__
  
 * When using the __-f__ option, the __-p -e__ and __-r__ parameters are mandatory
+
+* The __-n/--simpledeployname__ option will pull resource information about the stack from the simple\_deploy parameter store, this enables the simple\_deploy parameters to be passed to future stacks along with the resources
   
 
 #### Passing Parameters from both a File and Database
@@ -108,9 +111,9 @@ __'-d -s cto-mobile-VPC'__ was added. The stackname will need to be provided to 
 
 * __-i__ <iam role name> may be used to use an iam role instead of passing access & secret keys
 
-#### Using with simple_deploy:
+#### Using with simple\_deploy:
 
- * We use backticks to pass the output from stackify in-line to our simple_deploy stack creation jobs as parameters:
+ * We use backticks to pass the output from stackify in-line to our simple\_deploy stack creation jobs as parameters:
 
 Example:
 

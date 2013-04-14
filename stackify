@@ -84,14 +84,23 @@ def get_stack_resources(stackname):
     try: 
         dom = sdbconn.get_domain('stacks')
     except:
-        print "SDB Connection Error"
+        print "SDB Connection Error, couldn't connect to stacks domain"
         sys.exit(-1)
     #Iterate over stack names provided and return keypairs in CAP format
     for stack in stackname:
-        i = dom.get_item(stack)
-        for key, value in i.iteritems():
-            pair = [key,value]
-            d.append(pair)
+        #use simple_deploy styple naming if -n was used
+        if sdname:
+            stack = "%s-%s" % (stack,region)
+        try:    
+            i = dom.get_item(stack)
+        except:
+            print "couldn't find stack %s in sdb" % (stack)
+        try:
+            for key, value in i.iteritems():
+                pair = [key,value]
+                d.append(pair)
+        except:
+            print "Couldn't find stack %s parameters in SimpleDB" % (stack)
     #Output Parameters
     sys.stdout = sys.__stdout__
     for k, v in d:
@@ -105,7 +114,7 @@ def put_stack_resources(stackname, resource_list):
         try:
             mystackresources = cfnconn.list_stack_resources(stack)
         except:
-            print "CF get request error"
+            print "CF get request error, couldn't find stack named %s in %s " % (stack,region)
             sys.exit(-1)
 
         print "Connected to CloudFormation, Pulling resources for %s" % (stack)
@@ -122,7 +131,7 @@ def put_stack_resources(stackname, resource_list):
             # Pass CF dict to SDB
             set_stack_resources(stack, resource_dict)
         except:
-            print "Error Creating Parameters from Resources"
+            print "Error Creating Parameters from Resources for stack %s" % (stack)
             sys.exit(-1)
 
 def set_stack_resources(stack, resource_list):
@@ -131,6 +140,8 @@ def set_stack_resources(stack, resource_list):
         dom = sdbconn.get_domain('stacks')
         print "Connected to SimpleDB:stacks"
         # Use iterated stack for SDB item
+        if sdname:
+                stack = "%s-%s" % (stack,region)
         item_name = stack
         # Post key value pairs from dict
         dom.put_attributes(item_name, resource_list)
@@ -190,6 +201,9 @@ def usageget():
     print "    -The stackname will need to be provided to pull the correct stack info from simpledb"
     print ""
     print " -i <iam role name> may be used to use an iam role instead of passing access & secret keys"
+    print ""
+    print " -n Flag will get the parameters from the simple_deploy based namespace in SimpleDB."
+    print "    If the stack was launched with simple_deploy the stack cloudformation parameters will also be passed"
     sys.exit(-1)
 
 def usageput():
@@ -201,6 +215,10 @@ def usageput():
     print "    %s put -s cto-mobile-prod-1 -r us-west-1" % (sys.argv[0])
     print ""
     print " -i <iam role name> may be used to use an iam role instead of passing access & secret keys"
+    print ""
+    print " -n Flag will store stack resources in the simple_deploy namespace also used for stack parameters."
+    print "    This option enables both resources and parameters from this stack to be used as parameters"
+    print "    for launching future stacks."
     sys.exit(-1)
 
 def errormessage():
@@ -217,6 +235,7 @@ def main():
     parser.add_option("-r", "--region", action="store", type="string", dest="region")
     parser.add_option("-s", "--stack", dest="stackname", action="callback", callback=vararg_callback)
     parser.add_option("-f", "--file", dest="filename", action="callback", callback=vararg_callback)
+    parser.add_option("-n", "--simpledeployname", action="store_true", dest="sdname", default=False, help="Used for retrieving parameters from SimpleDB using simple_deploy generated name")
     parser.add_option("-d", "--db", action="store_true", dest="sdb", default=False, help="Used for retrieving parameters from SimpleDB")
     parser.add_option("-i", "--role", action="store", type="string", dest="iamrole")
     group = OptionGroup(parser, "Multiple Values Enabled",
@@ -258,6 +277,8 @@ def main():
     global region  
     region = options.region
     stackname = options.stackname
+    global sdname
+    sdname = options.sdname
     #Check for arguments and options and run jobs depending on parameters
     if sys.argv[1] == "get":
         if options.filename:
@@ -292,7 +313,6 @@ def main():
             get_stack_resources(stackname)
     elif sys.argv[1] == "put":
         if not options.stackname:
-            print getattr(parser.values, options.stackname)
             print "-s not provided"
             usageput()
         if not options.region in REGIONS:
