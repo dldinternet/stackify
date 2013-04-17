@@ -10,7 +10,7 @@ Prerequisites
 
 * Python version 2.6 or higher installed.
 * Boto Version 2.5 or higher
-* AWS account access key and secret key or IAM role.
+* AWS account access key and secret key (or IAM role but currently untested).
 
 Installation
 ------------
@@ -109,7 +109,7 @@ __'-d -s cto-mobile-VPC'__ was added. The stackname will need to be provided to 
 
 * Multiple stacknames may be provided to __-s__
 
-* __-i__ <iam role name> may be used to use an iam role instead of passing access & secret keys
+* __-i__ <iam role name> may be used to use an iam role instead of passing access & secret keys (currently untested)
 
 #### Using with simple\_deploy:
 
