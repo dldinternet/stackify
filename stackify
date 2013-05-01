@@ -139,6 +139,17 @@ def set_stack_resources(stack, resource_list):
         # Connect to SimpleDB Stacks Domain
         dom = sdbconn.get_domain('stacks')
         print "Connected to SimpleDB:stacks"
+    except:
+        print "Could not find SDB Domain Stacks in Region %s, will attempt creating" % (region)
+        try:
+            dom = sdbconn.create_domain('stacks')
+            print "Creating SimpleDB:stacks"
+            dom = sdbconn.get_domain('stacks')
+            print "Connected to SimpleDB:stacks"
+        except:
+            print "Couldn't create SimpleDB Domain Stacks in Regions %s, please check credentials" % (region)
+            sys.exit(-1)
+    try:
         # Use iterated stack for SDB item
         if sdname:
                 stack = "%s-%s" % (stack,region)
@@ -147,7 +158,7 @@ def set_stack_resources(stack, resource_list):
         dom.put_attributes(item_name, resource_list)
         print "SimpleDB Updated with Stack %s Resources" % (stack)
     except:
-        print "Unexpected error connecting to SDB Domain Stacks in Region %s" % (region)
+        print "Could not update SimpleDB:stacks' in Region %s" % (region)
         sys.exit(-1)
 
 
@@ -341,3 +352,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
