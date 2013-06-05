@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 '''
-Stackify V1.2.0
+Stackify V1.3.0
 Author: Grant Hoffman
 email:   Grant_Hoffman@intuit.com
 
@@ -22,6 +22,10 @@ Added functionality to pass json file based parameters
 v1.2.0
 Added IAM role functionality 
 Added better error checking output if credentials are incorrect
+
+v1.3.0
+Added CloudFormation Output functionality 
+Fixed IAM Role support
 '''
 
 import sys
@@ -104,9 +108,39 @@ def get_stack_resources(stackname):
     #Output Parameters
     sys.stdout = sys.__stdout__
     for k, v in d:
-        item = ' -a %s=%s' % (k,v) 
+        item = ' -a \"%s=%s\"' % (k,v) 
         print item,
 
+def put_stack_outputs(stackname):
+    # connect to aws / cf
+    for stack in stackname:
+        try:
+            stacks = cfnconn.describe_stacks(stack)
+            for s in stacks:
+                res = s.outputs
+        except:
+            print "Could not get information from cloudformation outputs, encountered an error!"
+            sys.exit(-1)
+        print "Pulling Outputs from stack: \"%s\"" % (stack)
+        try:
+            tmp_list = []
+            for out in res:
+                tmp = str(out)
+                tmp = re.sub('Output\:', '', tmp)
+                tmp = re.sub('\"', '', tmp)
+                tmp = re.split('=',tmp)
+                #add key value pairs to single list
+                for i in tmp:
+                    tmp_list.append(i)
+            output_number = len(tmp_list)
+            print "%s Outputs Found" % (output_number)
+
+            #create dictionary from list of key value pairs
+            it = iter(tmp_list)
+            output_dict = dict(zip(it, it))
+        except:
+            print "Couldn't find Output Information"
+        set_stack_parameters(stack, output_dict)
     
 def put_stack_resources(stackname, resource_list):  
     #Iterate over stack names and grab resources from CF
@@ -117,7 +151,7 @@ def put_stack_resources(stackname, resource_list):
             print "CF get request error, couldn't find stack named %s in %s " % (stack,region)
             sys.exit(-1)
 
-        print "Connected to CloudFormation, Pulling resources for %s" % (stack)
+        print "Connected to CloudFormation, Pulling resources from stack: \"%s\"" % (stack)
         resource_list = []
         try:
             for resource in mystackresources:
@@ -129,12 +163,13 @@ def put_stack_resources(stackname, resource_list):
             it = iter(resource_list)
             resource_dict = dict(zip(it, it))
             # Pass CF dict to SDB
-            set_stack_resources(stack, resource_dict)
+            set_stack_parameters(stack, resource_dict)
         except:
             print "Error Creating Parameters from Resources for stack %s" % (stack)
             sys.exit(-1)
 
-def set_stack_resources(stack, resource_list):
+
+def set_stack_parameters(stack, resource_list):
     try:
         # Connect to SimpleDB Stacks Domain
         dom = sdbconn.get_domain('stacks')
@@ -156,12 +191,10 @@ def set_stack_resources(stack, resource_list):
         item_name = stack
         # Post key value pairs from dict
         dom.put_attributes(item_name, resource_list)
-        print "SimpleDB Updated with Stack %s Resources" % (stack)
+        print "Updating SimpleDB Item: \"%s\"" % (stack)
     except:
         print "Could not update SimpleDB:stacks' in Region %s" % (region)
         sys.exit(-1)
-
-
 
 def vararg_callback(option, opt_str, value, parser):
     # iterate over provided stacks using optparse callback
@@ -187,6 +220,7 @@ def vararg_callback(option, opt_str, value, parser):
 
 
 def usageget():
+
     print ""
     print "Usage:"
     print "The get argument is used To provide parameters to a stack launch"
@@ -195,6 +229,7 @@ def usageget():
     print "  Example: "
     print "    %s get -s cto-mobile-VPC -r us-west-1" % (sys.argv[0])
     print "    -The -s and -r parameters are mandatory with this option"
+    print ""
     print ""
     print "If you would like to pull the parameters from a file use the -f parameter and provide the filename(s)"
     print ""
@@ -205,16 +240,16 @@ def usageget():
     print "     -Multiple .json files may be passed using -f"
     print "     -When using \"-f file.json\", the -p -e and -r parameters are mandatory"
     print ""
+    print ""
     print "For getting parameters from both a .json file and simpledb, use \"-f file.json\" and the \"-d\" flag"
     print ""
     print "  Example:"
     print "    %s get -f ./file.json -p cto-mobile -e prod -r us-west-1 -d -s cto-mobile-VPC" % (sys.argv[0])
     print "    -The stackname will need to be provided to pull the correct stack info from simpledb"
     print ""
-    print " -i <iam role name> may be used to use an iam role instead of passing access & secret keys"
-    print ""
     print " -n Flag will get the parameters from the simple_deploy based namespace in SimpleDB."
     print "    If the stack was launched with simple_deploy the stack cloudformation parameters will also be passed"
+    print ""
     sys.exit(-1)
 
 def usageput():
@@ -224,8 +259,6 @@ def usageput():
     print ""
     print "  Example: " 
     print "    %s put -s cto-mobile-prod-1 -r us-west-1" % (sys.argv[0])
-    print ""
-    print " -i <iam role name> may be used to use an iam role instead of passing access & secret keys"
     print ""
     print " -n Flag will store stack resources in the simple_deploy namespace also used for stack parameters."
     print "    This option enables both resources and parameters from this stack to be used as parameters"
@@ -248,7 +281,6 @@ def main():
     parser.add_option("-f", "--file", dest="filename", action="callback", callback=vararg_callback)
     parser.add_option("-n", "--simpledeployname", action="store_true", dest="sdname", default=False, help="Used for retrieving parameters from SimpleDB using simple_deploy generated name")
     parser.add_option("-d", "--db", action="store_true", dest="sdb", default=False, help="Used for retrieving parameters from SimpleDB")
-    parser.add_option("-i", "--role", action="store", type="string", dest="iamrole")
     group = OptionGroup(parser, "Multiple Values Enabled",
                     "You may provide multiple stack names to -s and or -f.                "
                     "  Example: stackify get -r us-east-1 -s stack1 stack2 stack3         " 
@@ -261,27 +293,23 @@ def main():
     if len(args) < 1:
         parser.error("Please Specify Put or Get Job, use -h for more information")
         usageget()
+
+    # this is now needed by put & get
+    global cfnconn
         
     #Set global Variables and connect to aws cf and sdb services with keys/regions if necessary
     if sys.argv[1] == "get":
         if not options.filename:
             options.sdb = True
     if sys.argv[1] == "put" or options.sdb:
-        global cfnconn
         try:
-            if options.iamrole: 
-                cfnconn = boto.cloudformation.connect_to_region(options.region,instance_profile_name=options.iamrole)
-            else:
-                cfnconn = boto.cloudformation.connect_to_region(options.region)
+            cfnconn = boto.cloudformation.connect_to_region(options.region)
         except:
             print 'Error authenticating for AWS CF, check keys or iam role'
             sys.exit(-1)
         global sdbconn
         try:
-            if options.iamrole:  
-                sdbconn = boto.sdb.connect_to_region(options.region,instance_profile_name=options.iamrole)
-            else:
-                sdbconn = boto.sdb.connect_to_region(options.region)
+            sdbconn = boto.sdb.connect_to_region(options.region)
         except:
             print 'Error authenticating for AWS SimpleDB, check keys or iam role'
             sys.exit(-1)
@@ -337,7 +365,16 @@ def main():
             usageput()
         print "Running put call for Region=%s & Stacks=%s" % (options.region,options.stackname)
         resource_list = []
-        put_stack_resources(stackname, resource_list)
+        
+        try:
+            #add resources to SimpleDB
+            put_stack_resources(stackname, resource_list)
+
+            #add outputs to SimpleDB
+            put_stack_outputs(stackname)
+        except:
+            usageput()
+        print "Successfullly updated SimpleDB"
     
     else:
         print "Must pass argument \"get\" or \"put\" "
