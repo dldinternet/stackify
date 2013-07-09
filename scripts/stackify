@@ -108,7 +108,7 @@ def get_stack_resources(stackname):
     #Output Parameters
     sys.stdout = sys.__stdout__
     for k, v in d:
-        item = ' -a \"%s=%s\"' % (k,v) 
+        item = ' -a %s=%s' % (k,v) 
         print item,
 
 def put_stack_outputs(stackname):
