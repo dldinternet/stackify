@@ -4,12 +4,12 @@ Stackify manages your Cloudformation parameters for multiple AWS regions, enviro
 
 Usage
 -----
-Stackify is made to integrate with simple\_deploy. After a stack is created with simple\_deploy, "stackify put ..." is then ran for the created stack and all resource information about the stack is then stored in the regions simpleDB 'stacks' domain. This is especially useful for launching a cloudformation stack for your VPC/Subnets, and then launching a stack inside of the VPC. Non AWS resource specific parameters should be stored using the alternate json method. Parameters from a json formatted file and/or simpleDB and then provided to the CAP simple\_deploy job for new stack creation.
+Stackify is made to integrate with simple\_deploy. After a stack is created with simple\_deploy, "stackify put ..." is then ran for the created stack and all resource information about the stack and outputs defined, are then stored in the region's simpleDB 'stacks' domain. This is especially useful for launching a Cloudformation stack for your VPC, and then launching a stack inside of that VPC. Non-AWS resource specific parameters should be stored using the alternate json method. Parameters from a json formatted file and/or from simpleDB are then provided to the CAP simple\_deploy job for the creation of new stacks.
 
 Prerequisites
 -------------
 
-* Python version 2.6 or higher installed.
+* Python 2.x version 2.6 or higher installed.
 * Boto Version 2.8 or higher (will be installed automatically during the setup.py install)
 * AWS account access key and secret key or IAM Instance Role with SimpleDB read/write and Cloudformation read-only access on the machine running stackify
 
@@ -18,17 +18,16 @@ Installation
 
 Install python if necessary (most current distributions will have python 2.6 or higher)
 
-python setuptools must be installed
-
-* you can try running easy_install and/or pip to confirm
+python setuptools and pip must be installed
 
 If necessary run: 
 
 ```
 yum install python-setuptools
+easy_install pip
 ```
 
-Run the setup.py installation from the stackify_internal folder
+Run the setup.py installation from the stackify folder
 
 ```
 python setup.py install
@@ -47,7 +46,7 @@ export AWS_ACCESS_KEY_ID=<AWS Access Key ID>
 export AWS_SECRET_ACCESS_KEY=<AWS Secret Access key>
 ```
 
-If using an IAM instance role, access should be provided automagically
+If using an IAM instance role with SDB and CF permission, then access should be provided automagically!
 
 
 Documentation
@@ -58,12 +57,16 @@ Documentation
 
 The **'put'** argument is used to save stack resource and output information to SimpleDB.
 This should be ran after succefully launching a stack using __'simple\_deploy'__ to enable the resources to be used as parameters for future stacks.
-The __-s__ and __-r__ parameters are mandatory with this option
+The __-s__ and __-r__ parameters are mandatory with this argument
+
 
 Example:
 ``` 
-./stackify put -s cto-mobile-VPC -r us-west-1        
+./stackify put -s STACKNAME-VPC -r us-west-1        
 ```
+
+* The __-n/--simpledeployname__ flag will put resource information about the stack into the SimpleDB namespace used by the simple\_deploy parameter store, and the simple\_deploy parameters of a stack will then also be passed to future stacks
+* Stackify 'put' will force an overwrite of any old parameters in SimpleDB with the same key name and same stackname
 
 
 
@@ -77,32 +80,32 @@ By default, the 'get' argument will pull the saved resource information from sim
 #### Passing Parameters from SimpleDB
 
 * The __-d/--db__ option will be assumed unless __-f/--file__  option is used.  
-* The __-s/--stack__ and __-r/--region__ options are mandatory when not using __-f/--file__
-* The __-n/--simpledeployname__ option will store resource information about the stack in the same place simple\_deploy stores parameters, this enables the simple\_deploy parameters to be passed to future stacks also
-* Cloudformation Outputs will take precedence over resources if they have the same name.
+* The __-s/--stack__ and __-r/--region__ options are mandatory when pulling parameters from SimpleDB
+* The __-n/--simpledeployname__ flag will get the resource information about the stack from the SimpleDB namespace used by simple\_deploy to store parameters, this enables the simple\_deploy parameters to be passed to new stacks as well
+* Cloudformation Outputs will take precedence over Cloudformation resources if they have the same name.
 
 Example: 
 ```
-./stackify get -s cto-mobile-VPC -r us-west-1        
+./stackify get -s STACKNAME-VPC -r us-west-1        
 ```
 
 
 
 #### Passing Parameters from a .json file
 
-* If you would like to pull the parameters from a json formatted file you can use the options: **"-f filename(s) -p project -e environment  -r region"**
+* If you would like to pull the parameters from a json formatted file you can use the options: **"-f filename(s) -p projectname -e environment  -r region"**
   
 Example: 
-1. Create json formatted file parameters with project, environment, region and key value pairs.
+1. Create a json formatted file with the projectname key(s), nesting environment(s) then region(s), with parameters as key value pairs:
 
 ```
-file.json < '{ "cto-mobile": { "prod": { "us-west-1" { "VPCID": "vpc-123456", "MinimumInstances": "1",}}}}'
+file.json < '{ "projectname": { "prod": { "us-west-1" { "VPCID": "vpc-123456", "MinimumInstances": "1",}}}}'
 ```
 
-2. Run stackify with _'-f pathto/file.json'_
+2. Run stackify get with _'-f pathto/file.json'_ 
 
 ```
-stackify get -f ./file.json -p cto-mobile -e prod -r us-west-1
+stackify get -f ./file.json -p projectname -e prod -r us-west-1
 ```
 
 * This returns the key value pairs from the json file in a simple\_deploy compatible parameter format: '-a VPCID=123456 -a MinimumInstances=1'
@@ -111,8 +114,7 @@ stackify get -f ./file.json -p cto-mobile -e prod -r us-west-1
  
 * When using the __-f__ option, the __-p -e__ and __-r__ parameters are mandatory
 
-* The __-n/--simpledeployname__ option will pull resource information about the stack from the simple\_deploy parameter store, this enables the simple\_deploy parameters to be passed to future stacks along with the resources
-  
+
 
 
 
@@ -125,15 +127,13 @@ If you'd like to specify parameters from both a .json file and from simpledb, us
 Example:
 
 ```
-stackify get -f ./file.json -p cto-mobile -e prod -r us-west-1 -d -s cto-mobile-VPC
+stackify get -f ./file.json -p projectname -e prod -r us-west-1 -d -s STACKNAME-VPC
 ```
 
-__'-d -s cto-mobile-VPC'__ was added. The stackname will need to be provided to pull the correct stack info from simpledb when using the database __-d__ flag. 
+__'-d -s STACKNAME-VPC'__ was added. When using the database __-d__ flag, the stackname will need to be provided to pull a specific stack's information from simpledb. 
 
 * Multiple stacknames may be provided to __-s__
-
-* IAM Instance based roles may be used instead of passing access & secret keys 
-
+* The __-n/--simpledeployname__ flag will pull resource information about the stack from the simple\_deploy parameter store namespace in SimpleDB, this enables the simple\_deploy parameters to be passed to future stacks along with the resources
 
 
 #### Using with simple\_deploy:
@@ -143,13 +143,13 @@ __'-d -s cto-mobile-VPC'__ was added. The stackname will need to be provided to 
 Example:
 
 ```
-simple_deploy create -e cto-mobile-prod-us-west-1 -n cto-mobile-cd-us-west-1 -t ./CloudFormation/ASG.json  `stackify get -r us-west-1 -p cto-mobile -e prod -f ./params.json -d -s cto-mobile-VPC`
+simple_deploy create -e Simple_Deploy_Environment -n STACKNAME-VPC -t ./CloudFormation/ASG.json  `stackify get -p projectname -e prod -r us-west-1 -f ./params.json -d -s STACKNAME-VPC`
 ```
 or 
 
 ```
-parameters=`stackify get -r us-west-1 -p cto-mobile -e prod -f ./params.json -d -s cto-mobile-VPC`
-simple_deploy create -e cto-mobile-prod-us-west-1 -n cto-mobile-cd-us-west-1 -t ./CloudFormation/ASG.json ${parameters}
+parameters=`stackify get -p projectname -e prod -r us-west-1 -f ./params.json -d -s STACKNAME-VPC`
+simple_deploy create -e Simple_Deploy_Environment -n STACKNAME-VPC -t ./CloudFormation/ASG.json ${parameters}
 ```
 
 

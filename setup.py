@@ -5,7 +5,7 @@ setup(name='Stackify',
       description='Stackify for CAP',
       author='Grant Hoffman',
       author_email='grant_hoffman@intuit.com',
-      url='https://icode.intuit.com/projects/CTO_STAC/repos/stackify_internal/',
+      url='https://github.com/intuit/stackify/',
       install_requires=['boto>=2.8'],
       scripts=['scripts/stackify']
       )
