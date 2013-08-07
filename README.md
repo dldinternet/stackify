@@ -10,7 +10,7 @@ Prerequisites
 -------------
 
 * Python 2.x version 2.6 or higher installed.
-* Boto Version 2.8 or higher (will be installed automatically during the setup.py install)
+* Boto Version 2.9.9 or higher (will be installed automatically during the setup.py install)
 * AWS account access key and secret key or IAM Instance Role with SimpleDB read/write and Cloudformation read-only access on the machine running stackify
 
 Installation
@@ -158,3 +158,4 @@ simple_deploy create -e Simple_Deploy_Environment -n STACKNAME-VPC -t ./CloudFor
 
 * This feature enhancement now enables us to pass cloudformation outputs to SimpleDB.  This is useful when building inter-dependent projects 
 * IAM Roles tested and work without having to define role (Boto 2.6+)
+* The timestamp has changed on new Cloudformation stacks, must use Boto >= 2.9.9, Updated setup.py (https://github.com/boto/boto/issues/1582)
