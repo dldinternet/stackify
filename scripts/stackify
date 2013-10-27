@@ -190,7 +190,7 @@ def set_stack_parameters(stack, resource_list):
                 stack = "%s-%s" % (stack,region)
         item_name = stack
         # Post key value pairs from dict
-        dom.put_attributes(item_name, resource_list)
+        dom.put_attributes(item_name, resource_list, replace=True)
         print "Updating SimpleDB Item: \"%s\"" % (stack)
     except:
         print "Could not update SimpleDB:stacks' in Region %s" % (region)
