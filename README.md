@@ -152,10 +152,32 @@ parameters=`stackify get -p projectname -e prod -r us-west-1 -f ./params.json -d
 simple_deploy create -e Simple_Deploy_Environment -n STACKNAME-VPC -t ./CloudFormation/ASG.json ${parameters}
 ```
 
+#### Using simple_deploy and Stackify in Jenkins
+
+When running in a Jenkins job you may find that Jenkins adds extra quotes around the full key/value pairs in addition to just the values. For some reason Jenkins doesn't like the quotes when running stackify using backticks and adds extra single quotes around the key value pairs. To avoid this pass the simple_deploy job and stackify outputs to a shell script:
+
+```
+#Create Simple_Deploy creation shell script, use -n to remove trailing newline
+echo -n 'simple_deploy create -e myenvironment -n stack -t Cloudformation-Templates/stack.json ' > ./simple_deploy_run.sh 
+
+#Add stackify parameters to simple_deploy shell script
+echo "`stackify get -f params.json -p projectname -e dev -r us-east-1 -d -s vpc-stack -n`" >> ./simple_deploy_run.sh
+
+#Make Executable and Run simple_deploy
+chmod 755 ./simple_deploy_run.sh
+./simple_deploy_run.sh
+
+```
 
 
-#### V1.3 Updates!
+### Updates!
 
-* This feature enhancement now enables us to pass cloudformation outputs to SimpleDB.  This is useful when building inter-dependent projects 
+####V1.3.0
+* Enable passing cloudformation outputs to SimpleDB.  This is useful when building inter-dependent projects 
 * IAM Roles tested and work without having to define role (Boto 2.6+)
 * The timestamp has changed on new Cloudformation stacks, must use Boto >= 2.9.9, Updated setup.py (https://github.com/boto/boto/issues/1582)
+
+####v1.4.0
+* Migrated from optparse to argparse to parse arguments, better --help output
+* Wrapping Values with double quotes, fixes bug when passing parameters containing spaces
+* Jenkins job breaks when adding stackify job directly in line on simple_deploy job using backticks, this is because of the added double quotes around stackify values.

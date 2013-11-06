@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 '''
-Stackify V1.3.0
+Stackify
 Author: Grant Hoffman
 email:   Grant_Hoffman@intuit.com
 
@@ -16,27 +16,27 @@ Submit bugfixes to: https://github.com/intuit/stackify
 
 Changelog:
 
-v1.1.0
+v1.3.0
 Added functionality to pass json file based parameters
-
-v1.2.0
 Added IAM role functionality 
 Added better error checking output if credentials are incorrect
-
-v1.3.0
 Added CloudFormation Output functionality 
 Fixed IAM Role support
+
+v1.40
+Upated from optparse to argparse to clean up help
+Added single quotes around output values - fixed issues with spaces in values.
 '''
 
 import sys
 import re
-from optparse import OptionParser
-from optparse import OptionGroup
+import argparse
 import json
 from pprint import pprint
 import boto.sdb
 import boto.cloudformation
 
+Version = '1.40'
 REGIONS = ['us-east-1', 'us-west-1', 'us-west-2']
 
 
@@ -63,10 +63,10 @@ def jsongrep(d, patterns):
         for key, value in d.iteritems():
             pair = [key,value]
             js.append(pair)
-    #Output as CAP Parameters
+        #Output as CAP Parameters
         for k, v in js:
-            item = ' -a %s=%s' % (k,v)
-            print item,
+            item = ' -a %s="%s"' % (k,v)
+            sys.stdout.write (item),
  
     else:
         if isinstance(d, dict):
@@ -106,10 +106,9 @@ def get_stack_resources(stackname):
         except:
             print "Couldn't find stack %s parameters in SimpleDB" % (stack)
     #Output Parameters
-    sys.stdout = sys.__stdout__
     for k, v in d:
-        item = ' -a %s=%s' % (k,v) 
-        print item,
+        item = ' -a %s="%s"' % (k,v) 
+        sys.stdout.write (item),
 
 def put_stack_outputs(stackname):
     # connect to aws / cf
@@ -196,29 +195,6 @@ def set_stack_parameters(stack, resource_list):
         print "Could not update SimpleDB:stacks' in Region %s" % (region)
         sys.exit(-1)
 
-def vararg_callback(option, opt_str, value, parser):
-    # iterate over provided stacks using optparse callback
-    assert value is None
-    value = []
-
-    def floatable(str):
-        try:
-            float(str)
-            return True
-        except ValueError:
-            return False
-
-    for arg in parser.rargs:
-        if arg[:2] == "--" and len(arg) > 2:
-            break
-        if arg[:1] == "-" and len(arg) > 1 and not floatable(arg):
-            break
-        value.append(arg)
-
-    del parser.rargs[:len(value)]
-    setattr(parser.values, option.dest, value)
-
-
 def usageget():
 
     print ""
@@ -266,31 +242,34 @@ def usageput():
     sys.exit(-1)
 
 def errormessage():
-   print "%s not provided" % ( options.attr)
+   print "%s not provided" % ( args.attr)
 
 
 def main():
-    #Set Usage Information
-    usage = "usage: %s (put|get) [options]" % (sys.argv[0])
-    parser = OptionParser(usage)
-    #Options
-    parser.add_option("-p", "--project", action="store", type="string", dest="project")
-    parser.add_option("-e", "--environment", action="store", type="string", dest="environment")
-    parser.add_option("-r", "--region", action="store", type="string", dest="region")
-    parser.add_option("-s", "--stack", dest="stackname", action="callback", callback=vararg_callback)
-    parser.add_option("-f", "--file", dest="filename", action="callback", callback=vararg_callback)
-    parser.add_option("-n", "--simpledeployname", action="store_true", dest="sdname", default=False, help="Used for retrieving parameters from SimpleDB using simple_deploy generated name")
-    parser.add_option("-d", "--db", action="store_true", dest="sdb", default=False, help="Used for retrieving parameters from SimpleDB")
-    group = OptionGroup(parser, "Multiple Values Enabled",
-                    "You may provide multiple stack names to -s and or -f.                "
-                    "  Example: stackify get -r us-east-1 -s stack1 stack2 stack3         " 
-                    "  Example: stackify get -f file.json -p cto-mobile -r us-west-1 -e qa"
-                    "  Example: stackify put -r us-east-1 -s stack1 stack2 stack3         "  )
-    parser.add_option_group(group)
-    (options, args) = parser.parse_args()
     
+    parser = argparse.ArgumentParser(prog='stackify')  
+    parser.add_argument('-v','--version', action='version', version='%s' % Version)
+    parser.add_argument("-r",  action="store", dest="region", help="AWS region for SDB & json file parse")
+    parser.add_argument("-s", action="store",  nargs='*', dest="stackname", help="Cloudformation Stack name(s). (Multiple Values Allowed)")
+    parser.add_argument("-f",  action="store", nargs='*', dest="filename", help="The json file path(s). (Multiple Values Allowed)")
+    parser.add_argument("-p", '--project', action="store", dest="project", help="The project name to parse in the json file")
+    parser.add_argument("-e", '--environment', action="store", dest="environment", help="The environment name to parse in the json file.")
+    parser.add_argument("-d", "--simpledb", action="store_true", dest="sdb", default=False, help="When using the file option, also retrieve parameters from SimpleDB (Flag default: False)")
+    parser.add_argument("-n", "--simpledeployname", action="store_true", dest="sdname", default=False, help="Use simple_deploy naming for adding & retrieving parameters from SDB (Flag default: False)")
+    
+    #group = OptionGroup(parser, "Multiple Values Enabled","You may provide multiple stack names to -s and or -f.                ""  Example: stackify get -r us-east-1 -s stack1 stack2 stack3         ""  Example: stackify get -f file.json -p cto-mobile -r us-west-1 -e qa""  Example: stackify put -r us-east-1 -s stack1 stack2 stack3         "  )
+    #parser.parse_args('-h'.split())
+
+    args, unknown = parser.parse_known_args()
+    #parser.add_option_group(group)
+    subparsers = parser.add_subparsers(help="subparsers")
+    #Set Usage Information
+    usage = "%s (put|get) [options]" % (sys.argv[0])
+    parser = argparse.ArgumentParser(usage)
+
+    ###Everything below needs to be cleaned up
     # Check for the get/put arg
-    if len(args) < 1:
+    if len( sys.argv ) < 2: 
         parser.error("Please Specify Put or Get Job, use -h for more information")
         usageget()
 
@@ -299,71 +278,74 @@ def main():
         
     #Set global Variables and connect to aws cf and sdb services with keys/regions if necessary
     if sys.argv[1] == "get":
-        if not options.filename:
-            options.sdb = True
-    if sys.argv[1] == "put" or options.sdb:
+        if not args.filename:
+            args.sdb = True
+    if sys.argv[1] == "put" or args.sdb:
         try:
-            cfnconn = boto.cloudformation.connect_to_region(options.region)
+            cfnconn = boto.cloudformation.connect_to_region(args.region)
         except:
             print 'Error authenticating for AWS CF, check keys or iam role'
             sys.exit(-1)
         global sdbconn
         try:
-            sdbconn = boto.sdb.connect_to_region(options.region)
+            sdbconn = boto.sdb.connect_to_region(args.region)
         except:
             print 'Error authenticating for AWS SimpleDB, check keys or iam role'
             sys.exit(-1)
+
+    #Ugly globals
     global region  
-    region = options.region
-    stackname = options.stackname
+    region = args.region
+    stackname = args.stackname
     global sdname
-    sdname = options.sdname
+    sdname = args.sdname
+    
     #Check for arguments and options and run jobs depending on parameters
     if sys.argv[1] == "get":
-        if options.filename:
-            if not options.project:
+        if args.filename:
+            if not args.project:
                 print "-p not provided"
                 usageget()
-            if not options.environment:
+            if not args.environment:
                 print "-e not provided"
                 usageget()
-            if not options.region:
+            if not args.region:
                 print "-e not provided"
                 usageget()
             # Check for get job with both -f and -d
-            if options.sdb:
-                if not options.stackname:
+            if args.sdb:
+                if not args.stackname:
                     print "-s not provided"
                     usageget()
-                if not options.region:
+                if not args.region:
                     print "-r not provided"
                     usageget()
                 get_stack_resources(stackname)
-                get_file_resources(options.project,options.region,options.environment,options.filename)  
+                get_file_resources(args.project,args.region,args.environment,args.filename)  
             else:
-                get_file_resources(options.project,options.region,options.environment,options.filename) 
+                get_file_resources(args.project,args.region,args.environment,args.filename) 
         else:
-            if not options.stackname:
+            if not args.stackname:
                 print "-s not provided"
                 usageget()
-            if not options.region:
+            if not args.region:
                 print "-r not provided"
                 usageget()
             get_stack_resources(stackname)
     elif sys.argv[1] == "put":
-        if not options.stackname:
+        if not args.stackname:
             print "-s not provided"
             usageput()
-        if not options.region in REGIONS:
-            if options.region == None:
+        if not args.region in REGIONS:
+            if args.region == None:
                 print "Region not specified"
             else:
-                print "%s is not a valid region" % options.region
+                print "%s is not a valid region" % args.region
             usageput()
-        if not options.region:
+        if not args.region:
             print "-r not provided"
             usageput()
-        print "Running put call for Region=%s & Stacks=%s" % (options.region,options.stackname)
+        print "Running put call for Region=%s & Stacks=%s" % (args.region,args.stackname)
         resource_list = []
         
         try:
@@ -389,4 +371,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 

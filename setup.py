@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='Stackify',
-      version='1.3.0',
+      version='1.4.0',
       description='Stackify for CAP',
       author='Grant Hoffman',
       author_email='grant_hoffman@intuit.com',
