@@ -178,6 +178,6 @@ chmod 755 ./simple_deploy_run.sh
 * The timestamp has changed on new Cloudformation stacks, must use Boto >= 2.9.9, Updated setup.py (https://github.com/boto/boto/issues/1582)
 
 ####v1.4.0
-* Migrated from optparse to argparse to parse arguments, better --help output
-* Wrapping Values with double quotes, fixes bug when passing parameters containing spaces
-* Jenkins job breaks when adding stackify job directly in line on simple_deploy job using backticks, this is because of the added double quotes around stackify values.
+* Migrated from optparse to argparse to parse arguments, cleaner --help output
+* Now wrapping values with double quotes, fixes an issue when passing parameters containing spaces
+* Jenkins job now breaks if using backticks to add a stackify execution in line on a simple_deploy job. This is due to the addition of double quotes around the stackify values. (View Using simple_deploy and stackify in Jenkins to work around issue))
