@@ -49,15 +49,15 @@ export AWS_SECRET_ACCESS_KEY=<AWS Secret Access key>
 If using an IAM instance role with SDB and CF permission, then access should be provided automagically!
 
 
-Documentation
------------
+Using Stackify
+--------------
 
 ### stackify put
 
 
 The **'put'** argument is used to save stack resource and output information to SimpleDB.
-This should be ran after succefully launching a stack using __'simple\_deploy'__ to enable the resources to be used as parameters for future stacks.
-The __-s__ and __-r__ parameters are mandatory with this argument
+This should be ran after succefully launching a stack using 'simple\_deploy' to enable the resources to be used as parameters for future stacks.
+The -s  and -r parameters are mandatory with this argument
 
 
 Example:
@@ -65,7 +65,7 @@ Example:
 ./stackify put -s STACKNAME-VPC -r us-west-1        
 ```
 
-* The __-n/--simpledeployname__ flag will put resource information about the stack into the SimpleDB namespace used by the simple\_deploy parameter store, and the simple\_deploy parameters of a stack will then also be passed to future stacks
+* The -n/--simpledeployname flag will put resource information about the stack into the SimpleDB namespace used by the simple\_deploy parameter store, and the simple\_deploy parameters of a stack will then also be passed to future stacks
 * Stackify 'put' will force an overwrite of any old parameters in SimpleDB with the same key name and same stackname
 
 
@@ -78,10 +78,9 @@ By default, the 'get' argument will pull the saved resource information from sim
 
 
 #### Passing Parameters from SimpleDB
-
-* The __-d/--db__ option will be assumed unless __-f/--file__  option is used.  
-* The __-s/--stack__ and __-r/--region__ options are mandatory when pulling parameters from SimpleDB
-* The __-n/--simpledeployname__ flag will get the resource information about the stack from the SimpleDB namespace used by simple\_deploy to store parameters, this enables the simple\_deploy parameters to be passed to new stacks as well
+ 
+* The -s/--stack and -r/--region options are mandatory when pulling parameters from SimpleDB
+* The -n/--simpledeployname flag will get the resource information about the stack from the SimpleDB namespace used by simple\_deploy to store parameters, this enables the simple\_deploy parameters to be passed to new stacks as well
 * Cloudformation Outputs will take precedence over Cloudformation resources if they have the same name.
 
 Example: 
@@ -90,10 +89,9 @@ Example:
 ```
 
 
-
 #### Passing Parameters from a .json file
 
-* If you would like to pull the parameters from a json formatted file you can use the options: **"-f filename(s) -p projectname -e environment  -r region"**
+* If you would like to pull the parameters from a json formatted file you can use the options: "-f filename(s) -p projectname -e environment  -r region"
   
 Example: 
 1. Create a json formatted file with the projectname key(s), nesting environment(s) then region(s), with parameters as key value pairs:
@@ -110,52 +108,26 @@ stackify get -f ./file.json -p projectname -e prod -r us-west-1
 
 * This returns the key value pairs from the json file in a simple\_deploy compatible parameter format: '-a VPCID=123456 -a MinimumInstances=1'
 
-* Multiple .json files may be passed using __-f__
+* Multiple .json files may be passed using -f
  
-* When using the __-f__ option, the __-p -e__ and __-r__ parameters are mandatory
+* When using the -f option, the -p -e and -r parameters are mandatory
 
 
-
-
-
-#### Passing Parameters from both a File and Database
+#### Passing Parameters from both a json File and SimpleDB
 
 Parameters can be pulled from both a json file and the SimpleDB saved parameters. 
 
-If you'd like to specify parameters from both a .json file and from simpledb, use __-f file.json__ and the __-d__ flag
+If you'd like to specify parameters from both a .json file and from simpledb, use -f file.json and the -s stack option
     
 Example:
 
 ```
-stackify get -f ./file.json -p projectname -e prod -r us-west-1 -d -s STACKNAME-VPC
+stackify get -f ./file.json -p projectname -e prod -r us-west-1 -s STACKNAME-VPC
 ```
 
-__'-d -s STACKNAME-VPC'__ was added. When using the database __-d__ flag, the stackname will need to be provided to pull a specific stack's information from simpledb. 
+' -s STACKNAME-VPC' was added to the command. When using the -s stack option, the specific stack's information will be pulled from simpledb. 
 
-* Multiple stacknames may be provided to __-s__
-* The __-n/--simpledeployname__ flag will pull resource information about the stack from the simple\_deploy parameter store namespace in SimpleDB, this enables the simple\_deploy parameters to be passed to future stacks along with the resources
-
-
-#### Using with simple\_deploy:
-
- * We usually just use backticks to pass the output from stackify in-line to our simple\_deploy stack creation jobs as parameters:
-
-Example:
-
-```
-simple_deploy create -e Simple_Deploy_Environment -n STACKNAME-VPC -t ./CloudFormation/ASG.json  `stackify get -p projectname -e prod -r us-west-1 -f ./params.json -d -s STACKNAME-VPC`
-```
-or 
-
-```
-parameters=`stackify get -p projectname -e prod -r us-west-1 -f ./params.json -d -s STACKNAME-VPC`
-simple_deploy create -e Simple_Deploy_Environment -n STACKNAME-VPC -t ./CloudFormation/ASG.json ${parameters}
-```
+* Multiple stacknames may be provided to -s
+* The -n/--simpledeployname flag will pull resource information about the stack from the simple\_deploy parameter store namespace in SimpleDB, this enables the simple\_deploy parameters to be passed to future stacks along with the resources. This is usefull for clone jobs.
 
 
-
-#### V1.3 Updates!
-
-* This feature enhancement now enables us to pass cloudformation outputs to SimpleDB.  This is useful when building inter-dependent projects 
-* IAM Roles tested and work without having to define role (Boto 2.6+)
-* The timestamp has changed on new Cloudformation stacks, must use Boto >= 2.9.9, Updated setup.py (https://github.com/boto/boto/issues/1582)
