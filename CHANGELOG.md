@@ -1,6 +1,10 @@
 ##v1.4.0 (11/6/13)
+
 * Migrated from optparse to argparse to parse arguments for cleaner help output
 * Now wrapping output values with double quotes, fixes issue passing parameters containing spaces
+* Restructured functions. 
+* Moved usage out to seperate file.
+* Removed -d flag to make parameter usage less confusing
 
 ##v1.3.0 (6/5/13)
 
