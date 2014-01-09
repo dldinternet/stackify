@@ -4,7 +4,6 @@ Stackify
 Author: Grant Hoffman
 email:   Grant_Hoffman@intuit.com
 '''
-import pprint
 import sys
 import re
 import argparse
@@ -183,7 +182,6 @@ def main():
     parser.add_argument("-f",  action="store", nargs='*', dest="filename", help="The json file path(s). (Multiple Values Allowed)")
     parser.add_argument("-p", '--project', action="store", dest="project", help="The project name to parse in the json file")
     parser.add_argument("-e", '--environment', action="store", dest="environment", help="The environment name to parse in the json file.")
-    parser.add_argument("-d", "--simpledb", action="store_true", dest="sdb", default=False, help="When using the file option, also retrieve parameters from SimpleDB (Flag default: False)")
     parser.add_argument("-n", "--simpledeployname", action="store_true", dest="sdname", default=False, help="Use simple_deploy naming for adding & retrieving parameters from SDB (Flag default: False)")
     args, unknown = parser.parse_known_args()
     subparsers = parser.add_subparsers(help="subparsers")
@@ -203,10 +201,7 @@ def main():
         usageget()
 
     #Connect to aws cf and sdb services with keys/regions as necessary
-    if sys.argv[1] == "get":
-        if not args.filename:
-            args.sdb = True
-    if sys.argv[1] == "put" or args.sdb:
+    if sys.argv[1] == "put" or args.stackname:
         try:
             cfnconn = boto.cloudformation.connect_to_region(region)
         except:
@@ -231,11 +226,8 @@ def main():
                 print "-e not provided"
                 usageget()
 
-            # Check for get job with both -f and -d
-            if args.sdb:
-                if not args.stackname:
-                    print "-s not provided"
-                    usageget()
+            # Check for get job with both -f and -s
+            if args.stackname:
                 if not args.region:
                     print "-r not provided"
                     usageget()
@@ -245,7 +237,7 @@ def main():
                 get_file_resources(args.project,region,args.environment,args.filename) 
         else:
             if not args.stackname:
-                print "-s not provided"
+                print "please specify -f, -s or both"
                 usageget()
             if not args.region:
                 print "-r not provided"

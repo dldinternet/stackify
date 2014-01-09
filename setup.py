@@ -7,5 +7,5 @@ setup(name='Stackify',
       author_email='grant_hoffman@intuit.com',
       url='https://github.com/intuit/stackify/',
       install_requires=['boto>=2.9.9'],
-      scripts=['scripts/stackify','usage.py']
+      scripts=['scripts/stackify','scripts/usage.py']
       )
