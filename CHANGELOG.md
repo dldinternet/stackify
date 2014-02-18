@@ -1,3 +1,8 @@
+##v1.4.1 (02/18/14)
+
+* Fixed bug writing outputs to sdb 
+* Added the sdb consistent_read option to ensure all data is available when a stacks information is accessed, immediately after it is written.
+
 ##v1.4.0 (11/6/13)
 
 * Migrated from optparse to argparse to parse arguments for cleaner help output

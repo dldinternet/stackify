@@ -14,7 +14,7 @@ import boto.cloudformation
 from usage import usageget
 from usage import usageput
 
-Version = '1.40'
+Version = '1.4.1'
 REGIONS = ['us-east-1', 'us-west-1', 'us-west-2']
 
 
@@ -71,7 +71,7 @@ def parse_stack_resources(dom, sdname, stackname, region):
         if sdname:
             stack = "%s-%s" % (stack,region)
         try:    
-            param_dict = dom.get_item(stack)
+            param_dict = dom.get_item(stack, consistent_read=True)
             dict_to_list(param_dict, param_list)
         except:
             print "Couldn't find stack %s parameters in SimpleDB" % (stack)
@@ -87,7 +87,6 @@ def put_stack_outputs(sdbconn, cfnconn, sdname, stackname, region):
         except:
             print "Could not get information from cloudformation outputs, encountered an error!"
             sys.exit(-1)
-        print "Pulling Outputs from stack: \"%s\"" % (stack)
         try:
             tmp_list = []
             for out in res:
@@ -97,14 +96,14 @@ def put_stack_outputs(sdbconn, cfnconn, sdname, stackname, region):
                 tmp = re.split('=',tmp)
                 for i in tmp:
                     tmp_list.append(i)
-            output_number = len(tmp_list)
+            output_number = len(tmp_list) / 2
             print "%s Outputs Found" % (output_number)
             params_dict = iter_dict(tmp_list)
-            
         except:
             print "Couldn't find Output Information"
-        connect_to_domain_stacks(sdbconn, sdname, stack, params_dict, region)
- 
+        dom = connect_to_domain_stacks(sdbconn, sdname, stack, params_dict, region)
+        update_sdb(sdname, stack, dom, params_dict, region) 
+
 def iter_dict(in_list):
     #create dict from key value pairs list
     it = iter(in_list)
@@ -138,10 +137,8 @@ def put_stack_resources(sdbconn, cfnconn, sdname, stackname, resource_list, regi
 
 
 def connect_to_domain_stacks(sdbconn, sdname, stack, resource_list, region):
-    print "connecting to stacks"
     try:
         dom = sdbconn.get_domain('stacks')
-        print "Connected to SimpleDB:stacks"
         return dom
     except:
         print "Could not find SDB Domain 'Stacks', will attempt creating"
@@ -161,11 +158,10 @@ def update_sdb(sdname, stack, dom, resource_list, region):
     try:
         # Use iterated stack for SDB item
         if sdname:
-                stack = "%s-%s" % (stack,region)
+            stack = "%s-%s" % (stack,region)
         item_name = stack
         # Post key value pairs from dict
         dom.put_attributes(item_name, resource_list, replace=True)
-        print "Updating SimpleDB Item: \"%s\"" % (stack)
     except:
         print "Could not update SimpleDB:stacks' in Region %s" % (region)
         sys.exit(-1)
@@ -256,7 +252,7 @@ def main():
         if not args.region:
             print "-r not provided"
             usageput()
-        print "Running put call for Region=%s & Stacks=%s" % (args.region, args.stackname)
+        print "Updating sdb with metadata of Stacks:%s in %s" % (args.stackname, args.region)
         resource_list = []
         
         try:
@@ -267,7 +263,7 @@ def main():
             put_stack_outputs(sdbconn, cfnconn, sdname, stackname, region)
         except:
             usageput()
-        print "Successfullly updated SimpleDB"
+        print "Successfully updated SimpleDB"
 
     else:
         print "Must pass argument \"get\" or \"put\" "
