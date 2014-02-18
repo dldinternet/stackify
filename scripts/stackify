@@ -77,32 +77,31 @@ def parse_stack_resources(dom, sdname, stackname, region):
             print "Couldn't find stack %s parameters in SimpleDB" % (stack)
     output_cap_parameters(param_list)
 
-def put_stack_outputs(sdbconn, cfnconn, sdname, stackname, region):
+def put_stack_outputs(sdbconn, cfnconn, sdname, stack, region):
     # connect to aws / cf
-    for stack in stackname:
-        try:
-            stacks = cfnconn.describe_stacks(stack)
-            for s in stacks:
-                res = s.outputs
-        except:
-            print "Could not get information from cloudformation outputs, encountered an error!"
-            sys.exit(-1)
-        try:
-            tmp_list = []
-            for out in res:
-                tmp = str(out)
-                tmp = re.sub('Output\:', '', tmp)
-                tmp = re.sub('\"', '', tmp)
-                tmp = re.split('=',tmp)
-                for i in tmp:
-                    tmp_list.append(i)
-            output_number = len(tmp_list) / 2
-            print "%s Outputs Found" % (output_number)
-            params_dict = iter_dict(tmp_list)
-        except:
-            print "Couldn't find Output Information"
-        dom = connect_to_domain_stacks(sdbconn, sdname, stack, params_dict, region)
-        update_sdb(sdname, stack, dom, params_dict, region) 
+    try:
+        stacks = cfnconn.describe_stacks(stack)
+        for s in stacks:
+            res = s.outputs
+    except:
+        print "Could not get information from cloudformation outputs, encountered an error!"
+        sys.exit(-1)
+    try:
+        tmp_list = []
+        for out in res:
+            tmp = str(out)
+            tmp = re.sub('Output\:', '', tmp)
+            tmp = re.sub('\"', '', tmp)
+            tmp = re.split('=',tmp)
+            for i in tmp:
+                tmp_list.append(i)
+        output_number = len(tmp_list) / 2
+        print "%s Outputs Found" % (output_number)
+        params_dict = iter_dict(tmp_list)
+    except:
+        print "Couldn't find Output Information"
+    dom = connect_to_domain_stacks(sdbconn, sdname, stack, params_dict, region)
+    update_sdb(sdname, stack, dom, params_dict, region) 
 
 def iter_dict(in_list):
     #create dict from key value pairs list
@@ -110,30 +109,29 @@ def iter_dict(in_list):
     return dict(zip(it, it))
     
 
-def put_stack_resources(sdbconn, cfnconn, sdname, stackname, resource_list, region):  
+def put_stack_resources(sdbconn, cfnconn, sdname, stack, resource_list, region):  
     #Iterate over stack names and grab resources from CF
-    for stack in stackname:
-        try:
-            mystackresources = cfnconn.list_stack_resources(stack)
-        except:
-            print "CF get request error, couldn't find stack named %s in %s " % (stack,region)
-            sys.exit(-1)
+    try:
+        mystackresources = cfnconn.list_stack_resources(stack)
+    except:
+        print "CF get request error, couldn't find stack named %s in %s " % (stack,region)
+        sys.exit(-1)
 
-        print "Connected to CloudFormation, Pulling resources from stack: \"%s\"" % (stack)
-        resource_list = []
-        try:
-            for resource in mystackresources:
-                resource_list.append(resource.logical_resource_id)
-                resource_list.append(resource.physical_resource_id)
-            resource_number = len(mystackresources)
-            print "%s Resources Found" % (resource_number)
-            resource_dict_list = iter_dict(resource_list)
-            
-        except:
-            print "Error Creating Parameters from Resources for stack %s" % (stack)
-            sys.exit(-1)
-        dom = connect_to_domain_stacks(sdbconn, sdname, stack, resource_dict_list, region)
-        update_sdb(sdname, stack, dom, resource_dict_list, region)
+    print "Connected to CloudFormation, Pulling resources from stack: \"%s\"" % (stack)
+    resource_list = []
+    try:
+        for resource in mystackresources:
+            resource_list.append(resource.logical_resource_id)
+            resource_list.append(resource.physical_resource_id)
+        resource_number = len(mystackresources)
+        print "%s Resources Found" % (resource_number)
+        resource_dict_list = iter_dict(resource_list)
+        
+    except:
+        print "Error Creating Parameters from Resources for stack %s" % (stack)
+        sys.exit(-1)
+    dom = connect_to_domain_stacks(sdbconn, sdname, stack, resource_dict_list, region)
+    update_sdb(sdname, stack, dom, resource_dict_list, region)
 
 
 def connect_to_domain_stacks(sdbconn, sdname, stack, resource_list, region):
@@ -256,11 +254,12 @@ def main():
         resource_list = []
         
         try:
-            #add resources to SimpleDB
-            put_stack_resources(sdbconn, cfnconn, sdname, stackname, resource_list, region)
+            for stack in stackname:
+                #add resources to SimpleDB
+                put_stack_resources(sdbconn, cfnconn, sdname, stack, resource_list, region)
 
-            #add outputs to SimpleDB
-            put_stack_outputs(sdbconn, cfnconn, sdname, stackname, region)
+                #add outputs to SimpleDB
+                put_stack_outputs(sdbconn, cfnconn, sdname, stack, region)
         except:
             usageput()
         print "Successfully updated SimpleDB"
